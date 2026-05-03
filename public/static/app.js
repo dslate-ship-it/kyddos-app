@@ -242,7 +242,7 @@ function discoverScreen() {
   const rows = state.discover
   if (!rows.length) return `<section>${screenTitle('Discover', 'Building matches')}${emptyNoMatches()}</section>`
   return `<section class="discover-stack">
-    <div class="discover-hero"><span class="badge"><i class="fa-solid fa-heart-circle-check"></i>Recommended</span><h2>Families that fit your rhythm.</h2><p>Swipe-style discovery with parent-safe actions: Pass, Save, Request Playdate.</p></div>
+    <div class="discover-hero"><span class="badge"><i class="fa-solid fa-heart-circle-check"></i>Recommended</span><h2>Families that fit your FLOW.</h2><p>Swipe-style discovery with parent-safe actions: Pass, Save, Request Playdate.</p></div>
     ${rows.map(profileCard).join('')}
   </section>`
 }
