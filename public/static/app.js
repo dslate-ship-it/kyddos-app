@@ -86,31 +86,66 @@ async function loadAll() {
     state.boot = boot
     state.discover = [
       {
-        user: { user_id: 'u1' },
-        kydo: { name: 'Kai', age_band: '6–8' },
-        parent: { style: 'Calm, structured' },
-        fit: { score: 77, reasons: ['Legos', 'Outdoor play'] },
-        distance: '8 mi away',
-        location: 'Cedar Park'
+        user: { user_id: 'u1', verification_status: 'approved' },
+        kydo: { child_nickname: 'Kai', name: 'Kai', age_band: '6–8', avatar_id: 'fox', interests_top: ['Legos', 'Outdoor play'] },
+        parent: {
+          city_area: 'Cedar Park',
+          style: 'Calm, structured',
+          parent_style: ['Calm', 'structured'],
+          hosting_preference: 'Public venues first',
+          seeking_type: 'Peer circle'
+        },
+        fit: {
+          score: 77,
+          label: 'Recommended',
+          distance: 8,
+          sharedInterests: ['Legos', 'Outdoor play'],
+          reasons: ['Legos', 'Outdoor play'],
+          breakdown: { location: 20, age: 10, interests: 15, safety: 10, parentCompatibility: 10, logistics: 12 },
+          mismatchHighlights: []
+        }
       },
       {
-        user: { user_id: 'u2' },
-        kydo: { name: 'Luna', age_band: '5–7' },
-        parent: { style: 'Creative, flexible' },
-        fit: { score: 82, reasons: ['Art', 'Music'] },
-        distance: '5 mi away',
-        location: 'Round Rock'
+        user: { user_id: 'u2', verification_status: 'approved' },
+        kydo: { child_nickname: 'Luna', name: 'Luna', age_band: '5–7', avatar_id: 'bear', interests_top: ['Art', 'Music'] },
+        parent: {
+          city_area: 'Round Rock',
+          style: 'Creative, flexible',
+          parent_style: ['Creative', 'flexible'],
+          hosting_preference: 'We can host',
+          seeking_type: 'Play group'
+        },
+        fit: {
+          score: 82,
+          label: 'Strong Fit',
+          distance: 5,
+          sharedInterests: ['Art', 'Music'],
+          reasons: ['Art', 'Music'],
+          breakdown: { location: 22, age: 10, interests: 16, safety: 10, parentCompatibility: 12, logistics: 12 },
+          mismatchHighlights: []
+        }
       },
       {
-        user: { user_id: 'u3' },
-        kydo: { name: 'Noah', age_band: '7–9' },
-        parent: { style: 'Active, outdoorsy' },
-        fit: { score: 69, reasons: ['Sports', 'Bike riding'] },
-        distance: '12 mi away',
-        location: 'Austin'
+        user: { user_id: 'u3', verification_status: 'approved' },
+        kydo: { child_nickname: 'Noah', name: 'Noah', age_band: '7–9', avatar_id: 'owl', interests_top: ['Sports', 'Bike riding'] },
+        parent: {
+          city_area: 'Austin',
+          style: 'Active, outdoorsy',
+          parent_style: ['Active', 'outdoorsy'],
+          hosting_preference: 'Flexible',
+          seeking_type: 'One playmate'
+        },
+        fit: {
+          score: 69,
+          label: 'Partial Fit',
+          distance: 12,
+          sharedInterests: ['Sports', 'Bike riding'],
+          reasons: ['Sports', 'Bike riding'],
+          breakdown: { location: 14, age: 10, interests: 14, safety: 10, parentCompatibility: 8, logistics: 13 },
+          mismatchHighlights: []
+        }
       }
-    ];
-]
+    ]
 
     state.manual = manual.results
     state.requests = reqs.requests
@@ -333,19 +368,41 @@ function profileCard(row, manual = false, useDeckActions = !manual) {
   const showScore = ['premium','super_premium'].includes(state.boot.subscription.plan)
   const passClick = useDeckActions ? `deckPass('${user.user_id}')` : `toast('Passed safely')`
   const saveClick = useDeckActions ? `deckSave('${user.user_id}')` : `toast('Saved for later')`
+  const childName = kydo.child_nickname || kydo.name || 'Child'
+  const cityArea = parent.city_area || parent.location || ''
+  const fitMiles = typeof fit?.distance === 'number' ? fit.distance : null
+  const milesText = fitMiles != null && !Number.isNaN(fitMiles) ? `${fitMiles} mi away` : 'Distance TBD'
+  const fitLabelShort = (fit?.label && String(fit.label).split(' ')[0]) || 'Fit'
+  const interestList = (() => {
+    const a = fit?.sharedInterests
+    const b = fit?.reasons
+    if (Array.isArray(a) && a.length) return a
+    if (Array.isArray(b) && b.length) return b
+    if (typeof a === 'string' && a.trim()) return [a.trim()]
+    if (typeof b === 'string' && b.trim()) return [b.trim()]
+    return []
+  })()
+  const interestText = interestList.length ? interestList.join(', ') : 'Review fit details'
+  const parentStyleText = (() => {
+    const ps = parent?.parent_style
+    if (Array.isArray(ps) && ps.length) return ps.join(', ')
+    if (typeof ps === 'string' && ps.trim()) return ps.trim()
+    if (typeof parent?.style === 'string' && parent.style.trim()) return parent.style.trim()
+    return 'Review parent style'
+  })()
   return `<article class="card discovery-card">
     ${manual ? `<div class="notice">Manual Browse — Below Your Current Match Threshold. Review Fit Details Before Requesting.</div>` : ''}
     <div class="match-photo-panel">
       <div class="avatar xl">${iconFor(kydo.avatar_id)}</div>
-      <div class="fit-ring" style="--score:${fit.score}"><span>${showScore ? fit.score+'%' : fit.label.split(' ')[0]}</span></div>
+      <div class="fit-ring" style="--score:${fit.score}"><span>${showScore ? fit.score+'%' : fitLabelShort}</span></div>
       <div class="sparkle-dot"></div>
     </div>
     <div class="row-between profile-title-row">
-      <div><h2>${safe(kydo.child_nickname)}</h2><p>${safe(kydo.age_band)} • ${safe(parent.city_area)} • ${fit.distance} mi away</p></div>
+      <div><h2>${safe(childName)}</h2><p>${safe(kydo.age_band)} • ${safe(cityArea)} • ${safe(milesText)}</p></div>
       <span class="badge"><i class="fa-solid fa-user-shield"></i>Verified</span>
     </div>
-    <div class="pill-list" style="margin:12px 0"><span class="pill teal">${safe(fit.label)}</span><span class="pill">${safe(parent.hosting_preference)}</span><span class="pill">${safe(parent.seeking_type)}</span></div>
-    <p><strong>Why this fit:</strong> ${safe(fit.sharedInterests.join(', ') || 'Review fit details')}. Parent style: ${safe(parent.parent_style.join(', '))}.</p>
+    <div class="pill-list" style="margin:12px 0"><span class="pill teal">${safe(fit?.label || 'Fit')}</span><span class="pill">${safe(parent.hosting_preference || '')}</span><span class="pill">${safe(parent.seeking_type || '')}</span></div>
+    <p><strong>Why this fit:</strong> ${safe(interestText)}. Parent style: ${safe(parentStyleText)}.</p>
     <div class="action-dock"><button type="button" class="circle-action" onclick="${passClick}"><i class="fa-solid fa-xmark"></i><span>Pass</span></button><button type="button" class="circle-action save" onclick="${saveClick}"><i class="fa-regular fa-bookmark"></i><span>Save</span></button><button type="button" class="btn primary request-btn" onclick="selectProfile('${user.user_id}','Request Playdate')">Request Playdate</button><button type="button" class="circle-action" onclick="selectProfile('${user.user_id}','Profile Detail')"><i class="fa-solid fa-chevron-right"></i><span>Details</span></button></div>
   </article>`
 }
