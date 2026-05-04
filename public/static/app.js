@@ -19,6 +19,52 @@ const state = {
   error: ''
 }
 
+const DECK_LS = 'kyddos_deck_'
+
+function loadIdSet(key) {
+  try {
+    const raw = localStorage.getItem(DECK_LS + key)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveIdSet(key, set) {
+  try {
+    localStorage.setItem(DECK_LS + key, JSON.stringify([...set]))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function buildDiscoverDeckQueue(rows) {
+  const passed = loadIdSet('passed')
+  const saved = loadIdSet('saved')
+  return rows.filter((r) => r?.user?.user_id && !passed.has(r.user.user_id) && !saved.has(r.user.user_id))
+}
+
+function currentDiscoverProfile() {
+  const queue = buildDiscoverDeckQueue(state.discover)
+  return queue[0] ?? null
+}
+
+window.deckPass = (userId) => {
+  const s = loadIdSet('passed')
+  s.add(userId)
+  saveIdSet('passed', s)
+  toast('Passed — showing the next family.')
+}
+
+window.deckSave = (userId) => {
+  const s = loadIdSet('saved')
+  s.add(userId)
+  saveIdSet('saved', s)
+  toast('Saved for later — next family.')
+}
+
 const api = async (url, options = {}) => {
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options })
   const data = await res.json()
@@ -241,15 +287,25 @@ function timeOutBoxScreen() { return `<section class="card">${screenTitle('Time 
 function discoverScreen() {
   const rows = state.discover
   if (!rows.length) return `<section>${screenTitle('Discover', 'Building matches')}${emptyNoMatches()}</section>`
+  const queue = buildDiscoverDeckQueue(rows)
+  if (!queue.length) {
+    return `<section class="discover-stack">
+    <div class="discover-hero"><span class="badge"><i class="fa-solid fa-heart-circle-check"></i>Recommended</span><h2>Families that fit your FLOW.</h2><p>One family at a time. Pass, save, or request a playdate.</p></div>
+    <div class="state-box"><h2>No families left in your deck</h2><p>Pass and save choices are remembered on this device.</p></div>
+    ${emptyNoMatches()}
+  </section>`
+  }
   return `<section class="discover-stack">
-    <div class="discover-hero"><span class="badge"><i class="fa-solid fa-heart-circle-check"></i>Recommended</span><h2>Families that fit your FLOW.</h2><p>Swipe-style discovery with parent-safe actions: Pass, Save, Request Playdate.</p></div>
-    ${rows.map(profileCard).join('')}
+    <div class="discover-hero"><span class="badge"><i class="fa-solid fa-heart-circle-check"></i>Recommended</span><h2>Families that fit your FLOW.</h2><p>One family at a time. Pass, save, or request a playdate.</p></div>
+    ${profileCard(queue[0], false, true)}
   </section>`
 }
 
-function profileCard(row, manual = false) {
+function profileCard(row, manual = false, useDeckActions = !manual) {
   const { user, parent, kydo, fit } = row
   const showScore = ['premium','super_premium'].includes(state.boot.subscription.plan)
+  const passClick = useDeckActions ? `deckPass('${user.user_id}')` : `toast('Passed safely')`
+  const saveClick = useDeckActions ? `deckSave('${user.user_id}')` : `toast('Saved for later')`
   return `<article class="card discovery-card">
     ${manual ? `<div class="notice">Manual Browse — Below Your Current Match Threshold. Review Fit Details Before Requesting.</div>` : ''}
     <div class="match-photo-panel">
@@ -263,13 +319,13 @@ function profileCard(row, manual = false) {
     </div>
     <div class="pill-list" style="margin:12px 0"><span class="pill teal">${safe(fit.label)}</span><span class="pill">${safe(parent.hosting_preference)}</span><span class="pill">${safe(parent.seeking_type)}</span></div>
     <p><strong>Why this fit:</strong> ${safe(fit.sharedInterests.join(', ') || 'Review fit details')}. Parent style: ${safe(parent.parent_style.join(', '))}.</p>
-    <div class="action-dock"><button class="circle-action" onclick="toast('Passed safely')"><i class="fa-solid fa-xmark"></i><span>Pass</span></button><button class="circle-action save" onclick="toast('Saved for later')"><i class="fa-regular fa-bookmark"></i><span>Save</span></button><button class="btn primary request-btn" onclick="selectProfile('${user.user_id}','Request Playdate')">Request Playdate</button><button class="circle-action" onclick="selectProfile('${user.user_id}','Profile Detail')"><i class="fa-solid fa-chevron-right"></i><span>Details</span></button></div>
+    <div class="action-dock"><button type="button" class="circle-action" onclick="${passClick}"><i class="fa-solid fa-xmark"></i><span>Pass</span></button><button type="button" class="circle-action save" onclick="${saveClick}"><i class="fa-regular fa-bookmark"></i><span>Save</span></button><button type="button" class="btn primary request-btn" onclick="selectProfile('${user.user_id}','Request Playdate')">Request Playdate</button><button type="button" class="circle-action" onclick="selectProfile('${user.user_id}','Profile Detail')"><i class="fa-solid fa-chevron-right"></i><span>Details</span></button></div>
   </article>`
 }
 window.selectProfile = async (userId, screen) => { state.selectedProfile = await api(`/api/profile/${userId}`); setScreen(screen, 'Discover') }
 
 function profileDetailScreen() {
-  const p = state.selectedProfile || state.discover[0]
+  const p = state.selectedProfile || currentDiscoverProfile()
   if (!p) return `<section class="state-box"><h2>No profile selected</h2><button class="btn primary" onclick="setScreen('Discover','Discover')">Back to Discover</button></section>`
   const { user, parent, kydo, fit } = p
   return `<section class="card profile-detail-card">
@@ -285,7 +341,7 @@ function profileDetailScreen() {
 }
 
 function requestPlaydateScreen() { return `<section class="card">${screenTitle('Request Playdate', 'Suggest a safe first meet.')} ${formFields(['Suggested first meet: park, indoor play place, YMCA, ice cream/bakery, other public venue, flexible', 'Optional message', 'Proposed date/time optional'])}<div class="notice">Validation: verified user required and request limit checked. If out of requests: upgrade or buy credits.</div><div class="btn-row"><button class="btn primary" onclick="sendRequest()">Send Request</button><button class="btn outline" onclick="setScreen('Discover','Discover')">Cancel</button></div></section>` }
-window.sendRequest = async () => { const target = state.selectedProfile?.user?.user_id || state.discover[0]?.user?.user_id; try { const r = await api('/api/requests', { method:'POST', body: JSON.stringify({ receiver_user_id: target, suggested_meet_type:'Public park', message_preview:'Would you like to try a public park meetup?' }) }); toast(`Request delivered. ${r.remaining} monthly requests left.`); const reqs=await api('/api/requests'); state.requests=reqs.requests; setScreen('Requests','Requests') } catch(e){ toast(e.message) } }
+window.sendRequest = async () => { const target = state.selectedProfile?.user?.user_id || currentDiscoverProfile()?.user?.user_id; try { const r = await api('/api/requests', { method:'POST', body: JSON.stringify({ receiver_user_id: target, suggested_meet_type:'Public park', message_preview:'Would you like to try a public park meetup?' }) }); toast(`Request delivered. ${r.remaining} monthly requests left.`); const reqs=await api('/api/requests'); state.requests=reqs.requests; setScreen('Requests','Requests') } catch(e){ toast(e.message) } }
 
 function incomingRequestScreen() { const r = state.requests.find(x=>x.request_status==='incoming') || state.requests[0]; return requestDetail(r) }
 function requestDetail(r) { if(!r) return `<section class="state-box"><h2>No request selected</h2></section>`; return `<section class="card">${screenTitle('Incoming Request', 'Review fit, safety badges, and suggested meet.')}<span class="badge gold">${safe(r.match_label)} • ${r.match_score}%</span><p>${safe(r.message_preview || 'No message included.')}</p><div class="pill-list"><span class="pill">${safe(r.suggested_meet_type)}</span><span class="pill"><i class="fa-solid fa-shield"></i> Safety badges</span><span class="pill">Shared interests</span></div><div class="btn-row" style="margin-top:14px"><button class="btn primary" onclick="acceptRequest('${r.request_id}')">Accept</button><button class="btn outline" onclick="updateRequest('${r.request_id}','declined')">Decline</button><button class="btn outline" onclick="updateRequest('${r.request_id}','saved')">Save for Later</button><button class="btn ghost" onclick="toast('Report flow opened')">Report</button></div></section>` }
