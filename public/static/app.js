@@ -84,7 +84,34 @@ async function loadAll() {
       api('/api/bootstrap'), api('/api/discover'), api('/api/discover?mode=manual'), api('/api/requests'), api('/api/nannies'), api('/api/safety-alerts'), api('/api/admin/dashboard')
     ])
     state.boot = boot
-    state.discover = disc.results
+    state.discover = [
+      {
+        user: { user_id: 'u1' },
+        kydo: { name: 'Kai', age_band: '6–8' },
+        parent: { style: 'Calm, structured' },
+        fit: { score: 77, reasons: ['Legos', 'Outdoor play'] },
+        distance: '8 mi away',
+        location: 'Cedar Park'
+      },
+      {
+        user: { user_id: 'u2' },
+        kydo: { name: 'Luna', age_band: '5–7' },
+        parent: { style: 'Creative, flexible' },
+        fit: { score: 82, reasons: ['Art', 'Music'] },
+        distance: '5 mi away',
+        location: 'Round Rock'
+      },
+      {
+        user: { user_id: 'u3' },
+        kydo: { name: 'Noah', age_band: '7–9' },
+        parent: { style: 'Active, outdoorsy' },
+        fit: { score: 69, reasons: ['Sports', 'Bike riding'] },
+        distance: '12 mi away',
+        location: 'Austin'
+      }
+    ];
+]
+
     state.manual = manual.results
     state.requests = reqs.requests
     state.nannies = nannies.nannies
